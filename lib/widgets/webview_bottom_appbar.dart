@@ -20,8 +20,7 @@ class WebViewBottomAppBar extends StatelessWidget {
     return Container(
       height: kToolbarHeight,
       decoration: BoxDecoration(
-        color: Theme.of(context).appBarTheme.backgroundColor ??
-            Theme.of(context).colorScheme.surface,
+        color: Theme.of(context).appBarTheme.backgroundColor ?? Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.1),

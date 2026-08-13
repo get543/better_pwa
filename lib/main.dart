@@ -3,14 +3,13 @@ import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:better_pwa/constants/app_constants.dart';
 import 'package:better_pwa/screens/home.dart';
 
-
 void main() async {
   // It's best practice to ensure the Flutter binding is initialized,
   WidgetsFlutterBinding.ensureInitialized();
 
   await FlutterDownloader.initialize(
-      debug: true,
-      ignoreSsl: true // Set to true if specific website has SSL issues!
+    debug: true,
+    ignoreSsl: true, // Set to true if specific website has SSL issues!
   );
   runApp(const MyApp());
 }
@@ -46,4 +45,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-

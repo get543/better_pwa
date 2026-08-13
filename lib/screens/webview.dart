@@ -120,8 +120,7 @@ class _CommonWebViewState extends State<CommonWebView> {
     headers['Accept'] = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8';
 
     Directory? externalDir = await getExternalStorageDirectory();
-    String fileName = request.suggestedFilename ??
-        "downloaded_file_${DateTime.now().millisecondsSinceEpoch}";
+    String fileName = request.suggestedFilename ?? "downloaded_file_${DateTime.now().millisecondsSinceEpoch}";
 
     await FlutterDownloader.enqueue(
       url: request.url.toString(),
@@ -143,7 +142,7 @@ class _CommonWebViewState extends State<CommonWebView> {
     // NEW: Wrap the entire screen output in a PopScope to handle the system back swipe
     return PopScope(
       canPop: _canPop,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return; // If the system already popped it, do nothing
 
         // Check if the WebView can go back
@@ -161,31 +160,31 @@ class _CommonWebViewState extends State<CommonWebView> {
       child: _webViewSettings == null
           ? _buildLoadingScaffold(backgroundColor)
           : Scaffold(
-        backgroundColor: backgroundColor,
-        extendBody: true,
-        body: Listener(
-          behavior: HitTestBehavior.translucent,
-          onPointerDown: (_) => _handlePointerDown(),
-          onPointerUp: (_) => _handlePointerUp(),
-          onPointerCancel: (_) => _handlePointerUp(),
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: _buildWebViewStack(),
-              ),
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: SafeArea(
-                  top: false,
-                  left: false,
-                  right: false,
-                  child: _buildAnimatedAppBar(),
+              backgroundColor: backgroundColor,
+              extendBody: true,
+              body: Listener(
+                behavior: HitTestBehavior.translucent,
+                onPointerDown: (_) => _handlePointerDown(),
+                onPointerUp: (_) => _handlePointerUp(),
+                onPointerCancel: (_) => _handlePointerUp(),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: _buildWebViewStack(),
+                    ),
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: SafeArea(
+                        top: false,
+                        left: false,
+                        right: false,
+                        child: _buildAnimatedAppBar(),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 
@@ -228,7 +227,6 @@ class _CommonWebViewState extends State<CommonWebView> {
       if (_isAppBarVisible) setState(() => _isAppBarVisible = false);
       _hideTimer?.cancel();
       _lastScrollY = y.toDouble();
-
     } else if (scrollDelta < -15) {
       if (!_isAppBarVisible) setState(() => _isAppBarVisible = true);
       if (!_isTouching) _startHideTimer();
@@ -241,10 +239,7 @@ class _CommonWebViewState extends State<CommonWebView> {
   //! ===========================================================
 
   Color _getBackgroundColor() {
-    return WidgetsBinding.instance.platformDispatcher.platformBrightness ==
-        Brightness.dark
-        ? Colors.black
-        : Colors.white;
+    return WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark ? Colors.black : Colors.white;
   }
 
   Widget _buildLoadingScaffold(Color backgroundColor) {
@@ -283,14 +278,14 @@ class _CommonWebViewState extends State<CommonWebView> {
       curve: Curves.easeInOut,
       child: _isAppBarVisible
           ? WebViewBottomAppBar(
-        title: widget.title,
-        webViewController: _webViewController,
-        // NEW: Handle the force-close from the "X" button
-        onClose: () {
-          setState(() => _canPop = true);
-          Navigator.pop(context);
-        },
-      )
+              title: widget.title,
+              webViewController: _webViewController,
+              // NEW: Handle the force-close from the "X" button
+              onClose: () {
+                setState(() => _canPop = true);
+                Navigator.pop(context);
+              },
+            )
           : const SizedBox.shrink(),
     );
   }

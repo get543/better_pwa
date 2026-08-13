@@ -5,9 +5,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 class WebviewSettingsHelper {
   static Future<InAppWebViewSettings> getDefaultSettings() async {
-    final isDarkMode =
-        WidgetsBinding.instance.platformDispatcher.platformBrightness ==
-            Brightness.dark;
+    final isDarkMode = WidgetsBinding.instance.platformDispatcher.platformBrightness == Brightness.dark;
 
     bool useAlgorithmic = false;
     ForceDark useForceDark = ForceDark.AUTO;

@@ -36,7 +36,7 @@ class _MyHomePageState extends State<MyHomePage> {
     if (linkStrings != null) {
       // Convert the JSON strings back into LinkItem objects
       _customLinks = linkStrings.map((str) {
-        return LinkItem.fromJson(jsonDecode(str));
+        return LinkItem.fromJson(jsonDecode(str) as Map<String, dynamic>);
       }).toList();
     }
 
@@ -162,7 +162,7 @@ class _MyHomePageState extends State<MyHomePage> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(
+                                MaterialPageRoute<void>(
                                   builder: (context) => CommonWebView(
                                     url: item.url,
                                     title: item.title,
@@ -179,9 +179,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                     radius: 30.0,
                                     backgroundColor: Colors.blueAccent.shade100,
                                     child: Text(
-                                      item.title.isNotEmpty
-                                          ? item.title[0].toUpperCase()
-                                          : '?',
+                                      item.title.isNotEmpty ? item.title[0].toUpperCase() : '?',
                                       style: const TextStyle(
                                         fontSize: 24,
                                         fontWeight: FontWeight.bold,
@@ -192,10 +190,8 @@ class _MyHomePageState extends State<MyHomePage> {
                                   const SizedBox(width: 20.0),
                                   Flexible(
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         Text(
                                           item.title,
@@ -236,7 +232,7 @@ class _MyHomePageState extends State<MyHomePage> {
     final titleController = TextEditingController();
     final urlController = TextEditingController();
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) {
         return AlertDialog(
@@ -269,12 +265,10 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             TextButton(
               onPressed: () {
-                if (titleController.text.isNotEmpty &&
-                    urlController.text.isNotEmpty) {
+                if (titleController.text.isNotEmpty && urlController.text.isNotEmpty) {
                   String url = urlController.text.trim();
 
-                  if (!url.startsWith('http://') &&
-                      !url.startsWith('https://')) {
+                  if (!url.startsWith('http://') && !url.startsWith('https://')) {
                     url = 'https://$url';
                   }
 
