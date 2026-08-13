@@ -25,7 +25,7 @@ analyzer:
     - "**/*.freezed.dart"
     - "lib/generated_plugin_registrant.dart"
 
-  # 4. Custom Error Severities
+  # Custom Error Severities
   errors:
     # Treat missing return statements as a critical error rather than a warning
     missing_return: error
