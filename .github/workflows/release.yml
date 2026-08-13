@@ -1,0 +1,54 @@
+name: Flutter Build and Release
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1. Extract Version from pubspec.yaml
+      - name: Get version from pubspec
+        id: pubspec_version
+        run: |
+          # This line finds 'version: 1.0.0+1' and extracts '1.0.0+1'
+          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //')
+          echo "tag_name=v$VERSION" >> $GITHUB_OUTPUT
+          echo "display_version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      # 2. Create Release using the extracted version
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          # Uses the version we found in step 1
+          tag_name: ${{ steps.pubspec_version.outputs.tag_name }}
+          name: Release ${{ steps.pubspec_version.outputs.display_version }}
+          files: build/app/outputs/flutter-apk/app-release.apk
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
