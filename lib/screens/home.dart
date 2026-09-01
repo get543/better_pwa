@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // save links to device
 import 'package:better_pwa/screens/webview.dart';
 import 'package:better_pwa/models/link_items.dart';
+import 'package:better_pwa/services/app.updater.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -24,6 +25,11 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     super.initState();
     _loadLinks(); // Load data as soon as the screen opens
+
+    // Wait for the UI to render before showing the dialog
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppUpdater.checkForUpdates(context);
+    });
   }
 
   // --- NEW: LOAD FROM STORAGE ---

@@ -7,4 +7,7 @@ class AppConstants {
   static const String appBarTitle = "Better PWA";
   static const Color accentColor = Color(0xFFDB48FA); // #db48fa;
   static const Duration hideDuration = Duration(seconds: 3); // 3 seconds;
+
+  static const String githubOwner = 'get543';
+  static const String githubRepo = 'better_pwa';
 }
