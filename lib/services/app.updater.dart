@@ -14,7 +14,7 @@ class AppUpdater {
     try {
       // 1. Get current app version
       final packageInfo = await PackageInfo.fromPlatform();
-      final currentVersion = packageInfo.version; // e.g., "1.0.0"
+      final currentVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
 
       // 2. Fetch latest release from GitHub API
       final response = await http.get(
@@ -23,16 +23,17 @@ class AppUpdater {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final tagVersion = data['tag_name'].toString().replaceAll('v', ''); // Removes 'v' from 'v1.0.0'
+        final tagVersion = _normalizeVersion(data['tag_name'].toString());
 
-        // 3. Compare versions (Simple string comparison works for standard semantic versioning)
+        // 3. Compare the major, minor, and patch components numerically.
         if (_isNewerVersion(currentVersion, tagVersion)) {
           // Find the APK download URL from the release assets
-          final assets = data['assets'] as List<dynamic>;
-          final apkAsset = assets.firstWhere(
-            (asset) => asset['name'].toString().endsWith('.apk'),
-            orElse: () => null,
-          );
+          final assets = (data['assets'] as List<dynamic>).whereType<Map<String, dynamic>>().toList();
+          final apkAssets = assets.where((asset) {
+            final name = asset['name'];
+            return name is String && name.endsWith('.apk');
+          });
+          final apkAsset = apkAssets.isEmpty ? null : apkAssets.first;
 
           if (apkAsset != null && context.mounted) {
             _showUpdateDialog(context, tagVersion, apkAsset['browser_download_url'].toString());
@@ -121,14 +122,43 @@ class AppUpdater {
 
   /// Helper to check if GitHub version is greater than current version
   static bool _isNewerVersion(String current, String github) {
-    List<int> currentParts = current.split('.').map(int.parse).toList();
-    List<int> githubParts = github.split('.').map(int.parse).toList();
+    final currentParts = _parseVersion(current);
+    final githubParts = _parseVersion(github);
 
-    for (int i = 0; i < currentParts.length; i++) {
-      if (i >= githubParts.length) return false;
+    if (currentParts == null || githubParts == null) {
+      debugPrint('Unable to compare app versions: "$current" and "$github"');
+      return false;
+    }
+
+    for (var i = 0; i < currentParts.length; i++) {
       if (githubParts[i] > currentParts[i]) return true;
       if (githubParts[i] < currentParts[i]) return false;
     }
-    return githubParts.length > currentParts.length;
+    return false;
+  }
+
+  static String _normalizeVersion(String version) {
+    final withoutPrefix = version.replaceFirst(RegExp(r'^v'), '');
+    return withoutPrefix.split('+').first;
+  }
+
+  static List<int>? _parseVersion(String version) {
+    final normalized = _normalizeVersion(version);
+    final versionParts = normalized.split('+');
+    final parts = versionParts.first.split('.');
+
+    if (parts.length != 3 || parts.any((part) => int.tryParse(part) == null)) {
+      return null;
+    }
+
+    final parsed = parts.map(int.parse).toList();
+    if (versionParts.length > 1) {
+      final buildNumber = int.tryParse(versionParts[1]);
+      if (buildNumber == null) return null;
+      parsed.add(buildNumber);
+    } else {
+      parsed.add(0);
+    }
+    return parsed;
   }
 }

@@ -18,8 +18,9 @@ jobs:
       - name: Get version from pubspec
         id: pubspec_version
         run: |
-          # This line finds 'version: 1.0.0+1' and extracts '1.0.0+1'
-          VERSION=$(grep 'version:' pubspec.yaml | sed 's/version: //')
+          # Flutter versions may include a build number, for example 1.0.0+1.
+          # Keep the complete version in the tag so build-only releases are unique.
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/^version: //')
           echo "tag_name=v$VERSION" >> $GITHUB_OUTPUT
           echo "display_version=$VERSION" >> $GITHUB_OUTPUT
 

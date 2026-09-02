@@ -37,8 +37,7 @@ class _MyHomePageState extends State<MyHomePage> {
     final prefs = await SharedPreferences.getInstance();
 
     try {
-      final List<String>? savedLinks = prefs.getStringList('custom_links') ??
-          prefs.getStringList('custom_links_backup');
+      final List<String>? savedLinks = prefs.getStringList('custom_links') ?? prefs.getStringList('custom_links_backup');
 
       if (savedLinks != null) {
         final loadedLinks = <LinkItem>[];
