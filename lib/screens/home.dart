@@ -36,33 +36,91 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _loadLinks() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Retrieve the list of strings from storage
-    final List<String>? linkStrings = prefs.getStringList('custom_links');
+    try {
+      final List<String>? savedLinks = prefs.getStringList('custom_links') ??
+          prefs.getStringList('custom_links_backup');
 
-    if (linkStrings != null) {
-      // Convert the JSON strings back into LinkItem objects
-      _customLinks = linkStrings.map((str) {
-        return LinkItem.fromJson(jsonDecode(str) as Map<String, dynamic>);
-      }).toList();
+      if (savedLinks != null) {
+        final loadedLinks = <LinkItem>[];
+
+        for (final entry in savedLinks) {
+          final decoded = jsonDecode(entry);
+          if (decoded is Map) {
+            loadedLinks.add(LinkItem.fromJson(Map<String, dynamic>.from(decoded)));
+          }
+        }
+
+        _customLinks = loadedLinks;
+      }
+    } catch (e) {
+      debugPrint('Failed to load custom links: $e');
+      _customLinks = [];
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
-
-    // Tell the UI we are done loading
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   // --- NEW: SAVE TO STORAGE ---
   Future<void> _saveLinks() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Convert our LinkItem objects into JSON strings
     final List<String> linkStrings = _customLinks.map((item) {
       return jsonEncode(item.toJson());
     }).toList();
 
-    // Save the list of strings to the device
     await prefs.setStringList('custom_links', linkStrings);
+    await prefs.setStringList('custom_links_backup', linkStrings);
+  }
+
+  Future<void> _restoreBackupLinks() async {
+    final rootContext = context;
+    final messenger = ScaffoldMessenger.maybeOf(rootContext);
+
+    final prefs = await SharedPreferences.getInstance();
+    final backupLinks = prefs.getStringList('custom_links_backup');
+
+    if (backupLinks == null || backupLinks.isEmpty) {
+      if (rootContext.mounted && messenger != null) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('No backup available yet.')),
+        );
+      }
+      return;
+    }
+
+    final restoredLinks = <LinkItem>[];
+
+    try {
+      for (final entry in backupLinks) {
+        final decoded = jsonDecode(entry);
+        if (decoded is Map) {
+          restoredLinks.add(LinkItem.fromJson(Map<String, dynamic>.from(decoded)));
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to restore custom links from backup: $e');
+      if (rootContext.mounted && messenger != null) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Backup data is invalid and could not be restored.')),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _customLinks = restoredLinks;
+      _isLoading = false;
+    });
+
+    await _saveLinks();
+
+    if (rootContext.mounted && messenger != null) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('Restored ${restoredLinks.length} saved website${restoredLinks.length == 1 ? '' : 's'}.')),
+      );
+    }
   }
 
   @override
@@ -83,7 +141,13 @@ class _MyHomePageState extends State<MyHomePage> {
                   Row(
                     children: <Widget>[
                       IconButton(
+                        icon: const Icon(Icons.history),
+                        tooltip: 'Restore backup',
+                        onPressed: _restoreBackupLinks,
+                      ),
+                      IconButton(
                         icon: const Icon(Icons.add),
+                        tooltip: 'Add website',
                         onPressed: _showAddWebsiteDialog,
                       ),
                     ],
@@ -141,19 +205,21 @@ class _MyHomePageState extends State<MyHomePage> {
                         ),
 
                         // What happens when the swipe is completed
-                        onDismissed: (direction) {
+                        onDismissed: (direction) async {
                           // Remove from UI state
                           setState(() {
                             _customLinks.removeAt(index);
                           });
 
                           // Save the updated list to local device storage
-                          _saveLinks();
+                          await _saveLinks();
 
                           // Show a quick confirmation SnackBar
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('${item.title} removed')),
-                          );
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('${item.title} removed')),
+                            );
+                          }
                         },
 
                         // The actual Card UI
@@ -270,7 +336,7 @@ class _MyHomePageState extends State<MyHomePage> {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 if (titleController.text.isNotEmpty && urlController.text.isNotEmpty) {
                   String url = urlController.text.trim();
 
@@ -288,10 +354,12 @@ class _MyHomePageState extends State<MyHomePage> {
                     );
                   });
 
-                  // NEW: Save to device storage immediately after adding
-                  _saveLinks();
+                  // Save to device storage immediately after adding
+                  await _saveLinks();
 
-                  Navigator.pop(context);
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
                 }
               },
               child: const Text('Add'),

@@ -17,9 +17,10 @@ class LinkItem {
   };
 
   // 2. Convert a Map from storage back into a LinkItem
+  // Keep this tolerant of older app versions that may not have stored imageUrl
   factory LinkItem.fromJson(Map<String, dynamic> json) => LinkItem(
-    title: json['title'] as String,
-    url: json['url'] as String,
-    imageUrl: json['imageUrl'] as String,
+    title: (json['title'] ?? '').toString(),
+    url: (json['url'] ?? '').toString(),
+    imageUrl: (json['imageUrl'] ?? '').toString(),
   );
 }
