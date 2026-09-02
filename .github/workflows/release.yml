@@ -37,8 +37,18 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # Decode the Keystore
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > release-key.jks
+
+      # Build the APK using the Secrets for signing
       - name: Build APK
-        run: flutter build apk --release
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: flutter build apk --release --dart-define=SIGNING_STORE_PASSWORD=$KEYSTORE_PASSWORD --dart-define=SIGNING_KEY_ALIAS=$KEY_ALIAS --dart-define=SIGNING_KEY_PASSWORD=$KEY_PASSWORD
 
       # 2. Create Release using the extracted version
       - name: Create Release
