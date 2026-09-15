@@ -103,7 +103,7 @@ class _CommonWebViewState extends State<CommonWebView> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Downloading ${request.suggestedFilename ?? "file"}...'),
+          content: Text('Downloading ${request.suggestedFilename ?? "a file"}...'),
           duration: const Duration(seconds: 2),
         ),
       );

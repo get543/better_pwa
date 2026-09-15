@@ -74,17 +74,28 @@ class AppUpdater {
 
   /// Downloads the APK and triggers the Android Installer
   static Future<void> _downloadAndInstall(BuildContext context, String url, String version) async {
+    final downloadProgress = ValueNotifier<double?>(0);
+
     // Show a loading dialog
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const AlertDialog(
-        content: Row(
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 20),
-            Text("Downloading update..."),
-          ],
+      builder: (context) => ValueListenableBuilder<double?>(
+        valueListenable: downloadProgress,
+        builder: (context, progress, child) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                progress == null
+                    ? 'Downloading update...'
+                    : 'Downloading update... ${(progress * 100).toStringAsFixed(0)}%',
+              ),
+              const SizedBox(height: 16),
+              LinearProgressIndicator(value: progress),
+            ],
+          ),
         ),
       ),
     );
@@ -94,10 +105,27 @@ class AppUpdater {
       final tempDir = await getTemporaryDirectory();
       final savePath = '${tempDir.path}/app-update-$version.apk';
 
-      // Download the file
-      final response = await http.get(Uri.parse(url));
       final file = File(savePath);
-      await file.writeAsBytes(response.bodyBytes);
+      final request = http.Request('GET', Uri.parse(url));
+      final response = await request.send();
+
+      if (response.statusCode != 200) {
+        throw HttpException('Update download failed with status ${response.statusCode}');
+      }
+
+      final totalBytes = response.contentLength;
+      var receivedBytes = 0;
+      final output = file.openWrite();
+
+      await response.stream.forEach((chunk) {
+        output.add(chunk);
+        receivedBytes += chunk.length;
+        if (totalBytes != null && totalBytes > 0) {
+          downloadProgress.value = receivedBytes / totalBytes;
+        }
+      });
+      await output.close();
+      downloadProgress.value = 1;
 
       // Close the loading dialog
       if (context.mounted) Navigator.pop(context);
@@ -117,6 +145,8 @@ class AppUpdater {
           const SnackBar(content: Text('Download failed. Please check your connection.')),
         );
       }
+    } finally {
+      downloadProgress.dispose();
     }
   }
 

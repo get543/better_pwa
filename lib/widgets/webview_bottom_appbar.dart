@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 class WebViewBottomAppBar extends StatelessWidget {
@@ -29,51 +30,72 @@ class WebViewBottomAppBar extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: onClose, // NEW: Use the callback instead of Navigator.pop
-          ),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18.0,
-                fontWeight: FontWeight.bold,
-              ),
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: onClose, // NEW: Use the callback instead of Navigator.pop
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios),
-            onPressed: () async {
-              final messenger = ScaffoldMessenger.of(context);
-              if (webViewController != null && await webViewController!.canGoBack()) {
-                await webViewController!.goBack();
-              } else {
-                _showSnackBar(messenger, "Can't go back");
-              }
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.arrow_forward_ios),
-            onPressed: () async {
-              final messenger = ScaffoldMessenger.of(context);
-              if (webViewController != null && await webViewController!.canGoForward()) {
-                await webViewController!.goForward();
-              } else {
-                _showSnackBar(messenger, "No forward history item");
-              }
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => webViewController?.reload(),
-          ),
-        ],
+            IconButton(
+              icon: const Icon(Icons.screen_rotation),
+              tooltip: 'Rotate screen',
+              onPressed: () => _toggleOrientation(context),
+            ),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18.0,
+                  fontWeight: FontWeight.bold,
+                ),
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.arrow_back_ios),
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                if (webViewController != null && await webViewController!.canGoBack()) {
+                  await webViewController!.goBack();
+                } else {
+                  _showSnackBar(messenger, "Can't go back");
+                }
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.arrow_forward_ios),
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                if (webViewController != null && await webViewController!.canGoForward()) {
+                  await webViewController!.goForward();
+                } else {
+                  _showSnackBar(messenger, "No forward history item");
+                }
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () => webViewController?.reload(),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Future<void> _toggleOrientation(BuildContext context) async {
+    final isPortrait = MediaQuery.orientationOf(context) == Orientation.portrait;
+
+    await SystemChrome.setPreferredOrientations(
+      isPortrait
+          ? const [
+              DeviceOrientation.landscapeLeft,
+              DeviceOrientation.landscapeRight,
+            ]
+          : const [DeviceOrientation.portraitUp],
     );
   }
 

@@ -1,3 +1,7 @@
+# Troubleshooting Guide
+
+## ⚠️ ERROR CANNOT RUN FLUTTER APP
+
 The clue to this massive error is buried in this specific line of the stack trace:
 
 > `IllegalArgumentException: this and base files have different roots: C:\Users\admin\AppData\Local\Pub\Cache\hosted\pub.dev\device_info_plus-12.4.0\... and E:\UDIN\Code\code-desktop\flutter\better_pwa\android.`
@@ -51,3 +55,117 @@ If you prefer to keep all your code on the `E:` drive but still want the fast in
 4. Set the Variable name to `PUB_CACHE` and the Variable value to a new folder on your E drive (e.g., `E:\FlutterCache`).
 5. Restart your computer (or close and reopen all terminal windows) so the new variable takes effect.
 6. Run `flutter clean` then `flutter pub get` in your project to redownload the dependencies to the new drive, and run the app.
+
+
+## ⚠️ IN-APP UPDATE CONFLICT (CANNOT INSTALL)
+
+### 1. Create Signing Key
+
+We need to create a signed apk in *better_pwa\android\app\build.gradle.kts* by getting the signing key from our dart environment variables.
+
+```java
+// 1. Decode the --dart-define variables passed from GitHub Actions
+val dartEnvironmentVariables = mutableMapOf<String, String>()
+if (project.hasProperty("dart-defines")) {
+    val dartDefines = project.property("dart-defines") as String
+    dartDefines.split(",").forEach {
+        val decoded = String(Base64.getDecoder().decode(it))
+        val split = decoded.split("=", limit = 2)
+        if (split.size == 2) {
+            dartEnvironmentVariables[split[0]] = split[1]
+        }
+    }
+}
+
+// 2. Fix the jvmTarget deprecation warning using the modern compilerOptions DSL
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
+android {
+    namespace = "app.better_pwa"
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = flutter.ndkVersion
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    defaultConfig {
+        applicationId = "app.better_pwa"
+        minSdk = flutter.minSdkVersion
+        targetSdk = flutter.targetSdkVersion
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+    }
+
+    signingConfigs {
+        // 3. Kotlin DSL requires "create()" for new signing configs
+        create("release") {
+            storeFile = file("release-key.jks")
+            // Fetch the decoded variables, with a fallback to empty string if missing
+            storePassword = dartEnvironmentVariables["SIGNING_STORE_PASSWORD"] ?: ""
+            keyAlias = dartEnvironmentVariables["SIGNING_KEY_ALIAS"] ?: ""
+            keyPassword = dartEnvironmentVariables["SIGNING_KEY_PASSWORD"] ?: ""
+        }
+    }
+
+    buildTypes {
+        // 4. Kotlin DSL requires "getByName()" to modify existing build types
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+        }
+    }
+}
+
+flutter {
+    source = "../.."
+}
+```
+
+### 2. Decode that key in Github Actions (`release.yml`)
+
+```yaml
+
+# ...
+    # 1. Extract Version from pubspec.yaml
+    - name: Get version from pubspec
+    id: pubspec_version
+    run: |
+        # Flutter versions may include a build number, for example 1.0.0+1.
+        # Keep the complete version in the tag so build-only releases are unique.
+        VERSION=$(grep '^version:' pubspec.yaml | sed 's/^version: //')
+        echo "tag_name=v$VERSION" >> $GITHUB_OUTPUT
+        echo "display_version=$VERSION" >> $GITHUB_OUTPUT
+
+
+
+    # Decode the Keystore and place it exactly in android/app/
+    - name: Decode Keystore
+    run: |
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release-key.jks
+
+    # Build the APK 
+    - name: Build APK
+    env:
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+    run: flutter build apk --release --dart-define=SIGNING_STORE_PASSWORD=$KEYSTORE_PASSWORD --dart-define=SIGNING_KEY_ALIAS=$KEY_ALIAS --dart-define=SIGNING_KEY_PASSWORD=$KEY_PASSWORD
+
+    # 2. Create Release using the extracted version
+    - name: Create Release
+    uses: softprops/action-gh-release@v1
+    with:
+        # Uses the version we found in step 1
+        tag_name: ${{ steps.pubspec_version.outputs.tag_name }}
+        name: Release ${{ steps.pubspec_version.outputs.display_version }}
+        files: build/app/outputs/flutter-apk/app-release.apk
+        draft: false
+        prerelease: false
+    env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```

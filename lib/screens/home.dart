@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // save links to device
 import 'package:better_pwa/screens/webview.dart';
 import 'package:better_pwa/models/link_items.dart';
-import 'package:better_pwa/services/app.updater.dart';
+import 'package:better_pwa/services/app_updater.dart';
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -185,11 +185,25 @@ class _MyHomePageState extends State<MyHomePage> {
                       child: Dismissible(
                         // Every Dismissible needs a unique Key to track items
                         key: ValueKey(item.url),
-                        direction: DismissDirection.endToStart,
-                        // Only allow swiping Right-to-Left
+                        direction: DismissDirection.horizontal,
 
-                        // This is the red background revealed when swiping
+                        // This is the edit background revealed when swiping Left-to-Right
                         background: Container(
+                          alignment: Alignment.centerLeft,
+                          padding: const EdgeInsets.only(left: 20.0),
+                          decoration: BoxDecoration(
+                            color: Colors.blue,
+                            borderRadius: BorderRadius.circular(15.0),
+                          ),
+                          child: const Icon(
+                            Icons.edit,
+                            color: Colors.white,
+                            size: 32,
+                          ),
+                        ),
+
+                        // This is the delete background revealed when swiping Right-to-Left
+                        secondaryBackground: Container(
                           alignment: Alignment.centerRight,
                           padding: const EdgeInsets.only(right: 20.0),
                           decoration: BoxDecoration(
@@ -203,8 +217,27 @@ class _MyHomePageState extends State<MyHomePage> {
                           ),
                         ),
 
+                        confirmDismiss: (direction) async {
+                          if (direction != DismissDirection.startToEnd) {
+                            return true;
+                          }
+
+                          final editedItem = await _showEditWebsiteDialog(item);
+                          if (editedItem == null || !mounted) {
+                            return false;
+                          }
+
+                          setState(() {
+                            _customLinks[index] = editedItem;
+                          });
+                          await _saveLinks();
+                          return false;
+                        },
+
                         // What happens when the swipe is completed
                         onDismissed: (direction) async {
+                          final removedIndex = index;
+
                           // Remove from UI state
                           setState(() {
                             _customLinks.removeAt(index);
@@ -213,10 +246,30 @@ class _MyHomePageState extends State<MyHomePage> {
                           // Save the updated list to local device storage
                           await _saveLinks();
 
-                          // Show a quick confirmation SnackBar
+                          var restored = false;
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('${item.title} removed')),
+                              SnackBar(
+                                content: Text('${item.title} removed'),
+                                duration: const Duration(seconds: 5),
+                                action: SnackBarAction(
+                                  label: 'UNDO',
+                                  onPressed: () async {
+                                    if (restored || !mounted) {
+                                      return;
+                                    }
+
+                                    restored = true;
+                                    setState(() {
+                                      final insertIndex = removedIndex > _customLinks.length
+                                          ? _customLinks.length
+                                          : removedIndex;
+                                      _customLinks.insert(insertIndex, item);
+                                    });
+                                    await _saveLinks();
+                                  },
+                                ),
+                              ),
                             );
                           }
                         },
@@ -296,6 +349,71 @@ class _MyHomePageState extends State<MyHomePage> {
           ],
         ),
       ),
+    );
+  }
+
+  Future<LinkItem?> _showEditWebsiteDialog(LinkItem item) {
+    final titleController = TextEditingController(text: item.title);
+    final urlController = TextEditingController(text: item.url);
+
+    return showDialog<LinkItem>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Website'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Website Title',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16.0),
+              TextField(
+                controller: urlController,
+                decoration: const InputDecoration(
+                  labelText: 'URL (e.g., google.com)',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.url,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final title = titleController.text.trim();
+                var url = urlController.text.trim();
+
+                if (title.isEmpty || url.isEmpty) {
+                  return;
+                }
+
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                  url = 'https://$url';
+                }
+
+                Navigator.pop(
+                  context,
+                  LinkItem(
+                    title: title,
+                    url: url,
+                    imageUrl: item.imageUrl,
+                  ),
+                );
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
     );
   }
 
