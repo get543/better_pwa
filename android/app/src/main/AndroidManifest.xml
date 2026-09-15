@@ -9,7 +9,7 @@
         tools:ignore="RequestInstallPackagesPolicy" />
 
     <application
-        android:label="Better PWA"
+        android:label="${appName}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"> <!-- !Clear Text for HTTP -->
