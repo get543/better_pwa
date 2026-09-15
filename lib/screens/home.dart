@@ -4,6 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart'; // save links to de
 import 'package:better_pwa/screens/webview.dart';
 import 'package:better_pwa/models/link_items.dart';
 import 'package:better_pwa/services/app_updater.dart';
+import 'package:better_pwa/services/backup_service.dart';
+
+enum _BackupAction { export, import }
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
@@ -73,55 +76,6 @@ class _MyHomePageState extends State<MyHomePage> {
     await prefs.setStringList('custom_links_backup', linkStrings);
   }
 
-  Future<void> _restoreBackupLinks() async {
-    final rootContext = context;
-    final messenger = ScaffoldMessenger.maybeOf(rootContext);
-
-    final prefs = await SharedPreferences.getInstance();
-    final backupLinks = prefs.getStringList('custom_links_backup');
-
-    if (backupLinks == null || backupLinks.isEmpty) {
-      if (rootContext.mounted && messenger != null) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('No backup available yet.')),
-        );
-      }
-      return;
-    }
-
-    final restoredLinks = <LinkItem>[];
-
-    try {
-      for (final entry in backupLinks) {
-        final decoded = jsonDecode(entry);
-        if (decoded is Map) {
-          restoredLinks.add(LinkItem.fromJson(Map<String, dynamic>.from(decoded)));
-        }
-      }
-    } catch (e) {
-      debugPrint('Failed to restore custom links from backup: $e');
-      if (rootContext.mounted && messenger != null) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Backup data is invalid and could not be restored.')),
-        );
-      }
-      return;
-    }
-
-    setState(() {
-      _customLinks = restoredLinks;
-      _isLoading = false;
-    });
-
-    await _saveLinks();
-
-    if (rootContext.mounted && messenger != null) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('Restored ${restoredLinks.length} saved website${restoredLinks.length == 1 ? '' : 's'}.')),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -137,19 +91,37 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
                 title: Text(widget.title),
                 actions: [
-                  Row(
-                    children: <Widget>[
-                      IconButton(
-                        icon: const Icon(Icons.history),
-                        tooltip: 'Restore backup',
-                        onPressed: _restoreBackupLinks,
+                  PopupMenuButton<_BackupAction>(
+                    tooltip: 'Backup websites',
+                    onSelected: (action) {
+                      switch (action) {
+                        case _BackupAction.export:
+                          _exportBackup();
+                        case _BackupAction.import:
+                          _importBackup();
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: _BackupAction.export,
+                        child: ListTile(
+                          leading: Icon(Icons.file_upload_outlined),
+                          title: Text('Export backup'),
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.add),
-                        tooltip: 'Add website',
-                        onPressed: _showAddWebsiteDialog,
+                      PopupMenuItem(
+                        value: _BackupAction.import,
+                        child: ListTile(
+                          leading: Icon(Icons.file_download_outlined),
+                          title: Text('Import backup'),
+                        ),
                       ),
                     ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    tooltip: 'Add website',
+                    onPressed: _showAddWebsiteDialog,
                   ),
                 ],
               ),
@@ -350,6 +322,87 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
     );
+  }
+
+  Future<void> _exportBackup() async {
+    try {
+      final exported = await BackupService.exportLinks(_customLinks);
+      if (!mounted || !exported) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Backup exported successfully.')),
+      );
+    } catch (e) {
+      debugPrint('Failed to export backup: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Backup could not be exported.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _importBackup() async {
+    List<LinkItem>? importedLinks;
+    try {
+      importedLinks = await BackupService.importLinks();
+    } on FormatException catch (e) {
+      debugPrint('Invalid backup: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('That file is not a valid backup.')),
+        );
+      }
+      return;
+    } catch (e) {
+      debugPrint('Failed to import backup: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Backup could not be imported.')),
+        );
+      }
+      return;
+    }
+
+    if (importedLinks == null || !mounted) {
+      return;
+    }
+
+    final shouldReplace = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Replace saved websites?'),
+        content: Text(
+          'This will replace your ${_customLinks.length} saved website${_customLinks.length == 1 ? '' : 's'} with ${importedLinks!.length} imported website${importedLinks.length == 1 ? '' : 's'}.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Replace'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldReplace != true || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _customLinks = importedLinks!;
+    });
+    await _saveLinks();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Imported ${importedLinks.length} website${importedLinks.length == 1 ? '' : 's'}.')),
+      );
+    }
   }
 
   Future<LinkItem?> _showEditWebsiteDialog(LinkItem item) {

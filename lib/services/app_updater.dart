@@ -168,8 +168,7 @@ class AppUpdater {
   }
 
   static String _normalizeVersion(String version) {
-    final withoutPrefix = version.replaceFirst(RegExp(r'^v'), '');
-    return withoutPrefix.split('+').first;
+    return version.replaceFirst(RegExp(r'^v'), '');
   }
 
   static List<int>? _parseVersion(String version) {

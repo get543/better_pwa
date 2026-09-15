@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 class WebViewBottomAppBar extends StatelessWidget {
@@ -37,11 +36,6 @@ class WebViewBottomAppBar extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.close),
               onPressed: onClose, // NEW: Use the callback instead of Navigator.pop
-            ),
-            IconButton(
-              icon: const Icon(Icons.screen_rotation),
-              tooltip: 'Rotate screen',
-              onPressed: () => _toggleOrientation(context),
             ),
             Expanded(
               child: Text(
@@ -83,19 +77,6 @@ class WebViewBottomAppBar extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-
-  Future<void> _toggleOrientation(BuildContext context) async {
-    final isPortrait = MediaQuery.orientationOf(context) == Orientation.portrait;
-
-    await SystemChrome.setPreferredOrientations(
-      isPortrait
-          ? const [
-              DeviceOrientation.landscapeLeft,
-              DeviceOrientation.landscapeRight,
-            ]
-          : const [DeviceOrientation.portraitUp],
     );
   }
 
